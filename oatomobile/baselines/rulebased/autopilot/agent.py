@@ -20,24 +20,12 @@ from typing import Any
 from typing import Optional
 from typing import Tuple
 
+import carla
 from absl import logging
 
-import carla
 import oatomobile
 from oatomobile.simulators.carla import defaults
-from oatomobile.utils import carla as cutil
-
-try:
-  from agents.navigation.local_planner import \
-      LocalPlanner  # pylint: disable=import-error
-  from agents.tools.misc import \
-      compute_magnitude_angle  # pylint: disable=import-error
-  from agents.tools.misc import \
-      is_within_distance_ahead  # pylint: disable=import-error
-except ImportError:
-  raise ImportError("Missing CARLA installation, "
-                    "make sure the environment variable CARLA_ROOT is provided "
-                    "and that the PythonAPI is `easy_install`ed")
+from oatomobile.util import carla as cutil
 
 
 class AutopilotAgent(oatomobile.Agent):
@@ -84,7 +72,7 @@ class AutopilotAgent(oatomobile.Agent):
     lateral_control_dict = defaults.LATERAL_PID_CONTROLLER_CONFIG.copy()
     lateral_control_dict.update({"dt": dt})
     # TODO(filangel): tune the parameters for FPS != 20
-    self._local_planner = LocalPlanner(
+    self._local_planner = oatomobile.LocalPlanner(
         self._vehicle,
         opt_dict=dict(
             target_speed=self._target_speed,
@@ -213,7 +201,7 @@ class AutopilotAgent(oatomobile.Agent):
         continue
 
       loc = target_vehicle.get_location()
-      if is_within_distance_ahead(
+      if oatomobile.is_within_distance_ahead(
           loc,
           ego_vehicle_location,
           self._vehicle.get_transform().rotation.yaw,
@@ -253,7 +241,7 @@ class AutopilotAgent(oatomobile.Agent):
         continue
 
       loc = traffic_light.get_location()
-      if is_within_distance_ahead(
+      if oatomobile.is_within_distance_ahead(
           loc,
           ego_vehicle_location,
           self._vehicle.get_transform().rotation.yaw,
@@ -280,7 +268,7 @@ class AutopilotAgent(oatomobile.Agent):
         sel_traffic_light = None
         for traffic_light in lights_list:
           loc = traffic_light.get_location()
-          magnitude, angle = compute_magnitude_angle(
+          magnitude, angle = oatomobile.compute_magnitude_angle(
               loc, ego_vehicle_location,
               self._vehicle.get_transform().rotation.yaw)
           if magnitude < 60.0 and angle < min(25.0, min_angle):

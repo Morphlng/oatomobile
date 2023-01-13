@@ -34,17 +34,16 @@ from typing import Sequence
 from typing import Tuple
 from typing import Union
 
+import carla
 import numpy as np
 import transforms3d.euler
 from absl import logging
-
-import carla
 
 
 def setup(
     town: str,
     fps: int = 20,
-    server_timestop: float = 20.0,
+    server_timestop: float = 5.0,
     client_timeout: float = 20.0,
     num_max_restarts: int = 5,
 ) -> Tuple[carla.Client, carla.World, int, subprocess.Popen]:  # pylint: disable=no-member
@@ -78,21 +77,17 @@ def setup(
     port = np.random.randint(2000, 3000)
 
     # Start CARLA server.
-    env = os.environ.copy()
-    env["SDL_VIDEODRIVER"] = "offscreen"
-    env["SDL_HINT_CUDA_DEVICE"] = "0"
     logging.debug("Inits a CARLA server at port={}".format(port))
     server = subprocess.Popen(
         [
             os.path.join(os.environ.get("CARLA_ROOT"), "CarlaUE4.sh"),
+            "-RenderOffScreen",
+            "-fps={}".format(fps),
             "-carla-rpc-port={}".format(port),
-            '-opengl',
-            "-quality-level=Epic",
         ],
         stdout=None,
         stderr=subprocess.STDOUT,
         preexec_fn=os.setsid,
-        env=env,
     )
     atexit.register(os.killpg, server.pid, signal.SIGKILL)
     time.sleep(server_timestop)
@@ -206,8 +201,12 @@ def carla_lidar_measurement_to_ndarray(
     return overhead_splat
 
   # Serialise and parse to `NumPy` tensor.
-  points = np.frombuffer(lidar_measurement.raw_data, dtype=np.dtype("f4"))
-  points = np.reshape(points, (int(points.shape[0] / 3), 3))
+  # points = np.frombuffer(lidar_measurement.raw_data, dtype=np.dtype("f4"))
+  # points = np.reshape(points, (int(points.shape[0] / 3), 3))
+  points = []
+  for location in lidar_measurement:
+    points.append([location.point.x, location.point.y, location.point.z])
+  points = np.array(points)
 
   # Split observations in the Z dimension (height).
   below = points[points[..., 2] <= -2.5]
@@ -717,19 +716,13 @@ def global_plan(
     roadoptions: A sequence of commands to navigate at each waypoint.
     distances: The distance per pair of waypoints of the plan.
   """
-  try:
-    from agents.navigation.global_route_planner import GlobalRoutePlanner  # pylint: disable=import-error
-    from agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO  # pylint: disable=import-error
-  except ImportError:
-    raise ImportError(
-        "Missing CARLA installation, "
-        "make sure the environment variable CARLA_ROOT is provided "
-        "and that the PythonAPI is `easy_install`ed")
+  from agents.navigation.global_route_planner import GlobalRoutePlanner  # pylint: disable=import-error
+  # TODO: This is no longer needed since 0.9.10
+  # from agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO  # pylint: disable=import-error
 
   # Setup global planner.
-  grp_dao = GlobalRoutePlannerDAO(wmap=world.get_map(), sampling_resolution=1)
-  grp = GlobalRoutePlanner(grp_dao)
-  grp.setup()
+  grp = GlobalRoutePlanner(wmap=world.get_map(), sampling_resolution=1)
+
   # Generate plan.
   waypoints, roadoptions = zip(*grp.trace_route(origin, destination))
   # Accummulate pairwise distance.

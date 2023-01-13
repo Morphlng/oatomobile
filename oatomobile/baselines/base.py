@@ -22,25 +22,13 @@ from typing import Any
 from typing import Mapping
 from typing import Optional
 
+import carla
 import numpy as np
 from absl import logging
 
 import oatomobile
-
-# Default PID controllers configuration.
-SIMULATOR_FPS = 20
-LATERAL_PID_CONTROLLER_CONFIG = {
-    'K_P': 1.95,
-    'K_D': 0.01,
-    'K_I': 1.4,
-    'dt': 1.0 / SIMULATOR_FPS,
-}
-LONGITUDINAL_PID_CONTROLLER_CONFIG = {
-    'K_P': 1.0,
-    'K_D': 0,
-    'K_I': 1.0,
-    'dt': 1.0 / SIMULATOR_FPS,
-}
+from oatomobile.simulators.carla import defaults
+from oatomobile.util import carla as cutil
 
 
 class SetPointAgent(oatomobile.Agent):
@@ -49,13 +37,14 @@ class SetPointAgent(oatomobile.Agent):
 
   def __init__(
       self,
-      environment: oatomobile.Env,
+      environment: oatomobile.envs.CARLAEnv,
       *,
       setpoint_index: int = 5,
       replan_every_steps: int = 1,
-      lateral_control_dict: Mapping[str, Any] = LATERAL_PID_CONTROLLER_CONFIG,
+      lateral_control_dict: Mapping[
+          str, Any] = defaults.LATERAL_PID_CONTROLLER_CONFIG,
       longitudinal_control_dict: Mapping[
-          str, Any] = LONGITUDINAL_PID_CONTROLLER_CONFIG,
+          str, Any] = defaults.LONGITUDINAL_PID_CONTROLLER_CONFIG,
       fixed_delta_seconds_between_setpoints: Optional[int] = None) -> None:
     """Constructs a setpoint-based agent.
 
@@ -68,14 +57,6 @@ class SetPointAgent(oatomobile.Agent):
       fixed_delta_seconds_between_setpoints: The time difference (in seconds)
         between the setpoints. It defaults to the fps of the simulator.
     """
-    try:
-      from agents.navigation.controller import VehiclePIDController  # pylint: disable=import-error
-    except ImportError:
-      raise ImportError(
-          "Missing CARLA installation, "
-          "make sure the environment variable CARLA_ROOT is provided "
-          "and that the PythonAPI is `easy_install`ed")
-
     super(SetPointAgent, self).__init__(environment=environment)
 
     # References to the CARLA objects.
@@ -93,7 +74,7 @@ class SetPointAgent(oatomobile.Agent):
     longitudinal_control_dict.update({"dt": dt})
     logging.debug("Longitudinal PID controller config {}".format(
         longitudinal_control_dict))
-    self._vehicle_controller = VehiclePIDController(
+    self._vehicle_controller = oatomobile.VehiclePIDController(
         vehicle=self._vehicle,
         args_lateral=lateral_control_dict,
         args_longitudinal=longitudinal_control_dict,
@@ -117,7 +98,6 @@ class SetPointAgent(oatomobile.Agent):
           **kwargs) -> oatomobile.Action:
     """Takes in an observation, samples from agent's policy, returns an
     action."""
-    from oatomobile.utils import carla as cutil
 
     # Current measurements used for local2world2local transformations.
     current_location = observation["location"]

@@ -12,18 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Utilities for logging to Weights & Biases."""
+"""Type definitions used in baselines."""
 
-import wandb
-from absl import flags
+from typing import Union
 
-from oatomobile.utils.loggers import base
+import numpy as np
+import torch
 
-wandb.init(project="oatomobile", config=flags.FLAGS)
+from oatomobile.core.typing import Scalar
 
-
-class WandBLogger(base.Logger):
-  """Logs to a `wandb` dashboard."""
-
-  def write(self, values: base.LoggingData) -> None:
-    wandb.log(values)
+ArrayLike = Union[Scalar, np.ndarray, torch.Tensor]

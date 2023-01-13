@@ -12,30 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Base logger, borrowed from DeepMind"s Acme."""
+"""Core data structures and type definitions."""
 
-import abc
-from typing import Any
-from typing import Mapping
+from typing import Sequence
+from typing import Union
 
-LoggingData = Mapping[str, Any]
-
-
-class Logger(abc.ABC):
-  """A logger has a `write` method."""
-
-  @abc.abstractmethod
-  def write(self, data: LoggingData):
-    """Writes `data` to destination (file, terminal, database, etc)."""
+import numpy as np
 
 
-class NoOpLogger(Logger):
-  """Simple Logger which does nothing and outputs no logs.
+class Singleton(type):
+  """Implements the singleton pattern."""
 
-  This should be used sparingly, but it can prove useful if we want to
-  quiet an individual component and have it produce no logging
-  whatsoever.
-  """
+  _instances = {}
 
-  def write(self, data: LoggingData):
-    pass
+  def __call__(cls, *args, **kwargs):
+    """Checks if singleton exists, creates one if not else return it."""
+    if cls not in cls._instances:
+      cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+    return cls._instances[cls]
+
+
+Shape = Sequence[int]
+ShapeLike = Union[int, Shape]
+Scalar = Union[float, int]

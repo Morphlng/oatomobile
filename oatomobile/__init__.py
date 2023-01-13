@@ -19,11 +19,86 @@ import sys
 
 from absl import logging
 
-# Make __version__ accessible.
-from oatomobile._metadata import __version__
+###############
+# CARLA SETUP #
+###############
 
+# HACK(filangel): resolves https://github.com/carla-simulator/carla/issues/2132.
+try:
+  import torch
+except ImportError:
+  pass
+try:
+  import sonnet as snt
+except ImportError:
+  pass
+
+# Enable CARLA PythonAPI to be accessed from `oatomobile`.
+carla_path = os.getenv("CARLA_ROOT")
+if carla_path is None:
+  raise EnvironmentError(
+      "Missing environment variable CARLA_ROOT, specify it before importing oatomobile"
+  )
+
+logging.debug("CARLA_ROOT={}".format(carla_path))
+carla_python_api = os.path.join(
+    carla_path,
+    "PythonAPI",
+    "carla",
+)
+if not os.path.exists(carla_python_api):
+  raise ImportError("Missing CARLA installation at {}".format(carla_python_api))
+sys.path.append(carla_python_api)
+
+from agents.navigation.controller import VehiclePIDController  # pylint: disable=import-error
+from agents.navigation.local_planner import \
+    LocalPlanner  # pylint: disable=import-error
+from agents.tools.misc import \
+    compute_magnitude_angle  # pylint: disable=import-error
+from agents.tools.misc import draw_waypoints  # pylint: disable=import-error
+from agents.tools.misc import get_speed  # pylint: disable=import-error
+
+# TODO: Carla changed this function into "is_within_distance"
+# from agents.tools.misc import is_within_distance_ahead  # pylint: disable=import-error
+
+# FIXME: This is a temporary fix for the above function.
+import numpy as np
+import math
+def is_within_distance_ahead(target_location, current_location, orientation, max_distance):
+    """
+    Check if a target object is within a certain distance in front of a reference object.
+
+    :param target_location: location of the target object
+    :param current_location: location of the reference object
+    :param orientation: orientation of the reference object
+    :param max_distance: maximum allowed distance
+    :return: True if target object is within max_distance ahead of the reference object
+    """
+    target_vector = np.array([target_location.x - current_location.x, target_location.y - current_location.y])
+    norm_target = np.linalg.norm(target_vector)
+
+    # If the vector is too short, we can simply stop here
+    if norm_target < 0.001:
+        return True
+
+    if norm_target > max_distance:
+        return False
+
+    forward_vector = np.array(
+        [math.cos(math.radians(orientation)), math.sin(math.radians(orientation))])
+    d_angle = math.degrees(math.acos(np.dot(forward_vector, target_vector) / norm_target))
+
+    return d_angle < 90.0
+
+###############
+
+# HACK(filangel): matplotlib setup - remove before release.
+import matplotlib
+matplotlib.use("Agg")
+
+# Benchmarks API.
+from oatomobile.benchmarks.carnovel.benchmark import carnovel
 # Core API.
-from oatomobile import types
 from oatomobile.core.agent import Agent
 from oatomobile.core.benchmark import Benchmark
 from oatomobile.core.dataset import Dataset
@@ -45,50 +120,14 @@ from oatomobile.core.simulator import SensorSuite
 from oatomobile.core.simulator import SensorTypes
 from oatomobile.core.simulator import Simulator
 
-###############
-# CARLA SETUP #
-###############
-
-# HACK(filangel): resolves https://github.com/carla-simulator/carla/issues/2132.
-try:
-  import torch
-except ImportError:
-  pass
-try:
-  import sonnet as snt
-except ImportError:
-  pass
-
-# Enable CARLA PythonAPI to be accessed from `oatomobile`.
-carla_path = os.getenv("CARLA_ROOT")
-if carla_path is None:
-  logging.warn(
-      "Missing environment variable CARLA_ROOT, "
-      "if you want to use CARLA specify it before importing oatomobile")
-
-logging.debug("CARLA_ROOT={}".format(carla_path))
-carla_python_api = os.path.join(
-    carla_path or "$CARLA_ROOT",
-    "PythonAPI",
-    "carla",
-)
-if not os.path.exists(carla_python_api):
-  logging.warn("Missing CARLA installation at {}".format(carla_python_api))
-else:
-  sys.path.append(carla_python_api)
-
-###################
-# Matplotlib Hack #
-###################
-
-# Remove before release.
-import matplotlib
-matplotlib.use("Agg")
-
-###################
-
 # Public API.
 __all__ = (
+    # CARLA Python API
+    "compute_magnitude_angle",
+    "draw_waypoints",
+    "is_within_distance_ahead",
+    "LocalPlanner",
+    "VehiclePIDController",
     # OATomobile core API
     "Agent",
     "Benchmark",
@@ -112,10 +151,10 @@ __all__ = (
 )
 
 #  ASCII art borrowed from dm-haiku.
-#  ____________________________________________
-# / Please don't use these symbols they        \
+#  __________________________________________
+# / Please don't use these symbols they      \
 # \ are not part of the OATomobile public API. /
-#  --------------------------------------------
+#  ------------------------------------------
 #         \   ^__^
 #          \  (oo)\_______
 #             (__)\       )\/\

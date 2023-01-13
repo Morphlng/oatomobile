@@ -27,6 +27,7 @@ from typing import Optional
 from typing import Sequence
 from typing import Tuple
 
+import carla
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,8 +35,6 @@ import pygame
 import tqdm
 from absl import logging
 from skimage import transform
-
-import carla
 
 
 def setup(

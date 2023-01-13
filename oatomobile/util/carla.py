@@ -39,6 +39,13 @@ import numpy as np
 import transforms3d.euler
 from absl import logging
 
+IS_WINDOWS_PLATFORM = "win" in sys.platform
+
+def cleanup(pid):
+  if IS_WINDOWS_PLATFORM:
+    subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)])
+  else:
+    os.killpg(pid, signal.SIGKILL)
 
 def setup(
     town: str,
@@ -80,16 +87,20 @@ def setup(
     logging.debug("Inits a CARLA server at port={}".format(port))
     server = subprocess.Popen(
         [
-            os.path.join(os.environ.get("CARLA_ROOT"), "CarlaUE4.sh"),
+            os.path.join(os.environ.get("CARLA_ROOT"), "CarlaUE4.exe" if IS_WINDOWS_PLATFORM else "CarlaUE4.sh"),
             "-RenderOffScreen",
             "-fps={}".format(fps),
             "-carla-rpc-port={}".format(port),
         ],
         stdout=None,
         stderr=subprocess.STDOUT,
-        preexec_fn=os.setsid,
+        preexec_fn=None if IS_WINDOWS_PLATFORM else os.setsid,
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                        if IS_WINDOWS_PLATFORM
+                        else 0
     )
-    atexit.register(os.killpg, server.pid, signal.SIGKILL)
+
+    atexit.register(cleanup, server.pid)
     time.sleep(server_timestop)
 
     # Connect client.
@@ -113,8 +124,8 @@ def setup(
       logging.debug(msg)
       attempts += 1
       logging.debug("Stopping CARLA server at port={}".format(port))
-      os.killpg(server.pid, signal.SIGKILL)
-      atexit.unregister(lambda: os.killpg(server.pid, signal.SIGKILL))
+      cleanup(server.pid)
+      atexit.unregister(cleanup)
 
   logging.debug(
       "Failed to connect to CARLA after {} attempts".format(num_max_restarts))

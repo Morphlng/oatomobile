@@ -21,6 +21,7 @@ import queue
 import random
 import signal
 import time
+import sys
 from typing import Any
 from typing import Mapping
 from typing import Optional
@@ -1832,6 +1833,11 @@ class CARLASimulator(simulator.Simulator):
     elif mode == "rgb_array":
       # Converts surface to an RGB tensor.
       return gutil.pygame_surface_to_ndarray(self._display)
+    
+    for event in pygame.event.get():
+      if event.type == pygame.QUIT:
+        self.close()
+        sys.exit()
 
   def close(self) -> None:
     """Closes the simulator down and controls connection to CARLA server."""
@@ -1843,5 +1849,5 @@ class CARLASimulator(simulator.Simulator):
     self._world.apply_settings(settings)
     logging.debug("Closes the CARLA server with process PID {}".format(
         self._server.pid))
-    os.killpg(self._server.pid, signal.SIGKILL)
-    atexit.unregister(lambda: os.killpg(self._server.pid, signal.SIGKILL))
+    cutil.cleanup(self._server.pid)
+    atexit.unregister(cutil.cleanup)

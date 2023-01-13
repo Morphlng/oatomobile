@@ -124,7 +124,9 @@ def mpl_figure_to_rgba(figure: plt.Figure) -> np.ndarray:
     The RGBA image.
   """
   # Stores figure temporarily.
-  with tempfile.NamedTemporaryFile(delete=True) as tmp:
+  auto_delete = True if os.name != "nt" else False
+
+  with tempfile.NamedTemporaryFile(delete=auto_delete) as tmp:
     figure.savefig(
         "{}".format(tmp.name),
         format="png",
@@ -134,6 +136,9 @@ def mpl_figure_to_rgba(figure: plt.Figure) -> np.ndarray:
     )
     # Reads figure on memory.
     image = imageio.imread("{}".format(tmp.name))
+  
+  if not auto_delete:
+    os.remove(tmp.name)
 
   # Processes the image.
   image = image.astype(np.float32) / 255.0

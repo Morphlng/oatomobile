@@ -234,6 +234,7 @@ class MonitorWrapper(gym.Wrapper):
     # The parent directory to store the video.
     self._output_fname = output_fname
     self._downsample_factor = downsample_factor
+    # FIXME: if the output_fname's belonging folder does not exist, we have to manually create it.
     self._recorder = imageio.get_writer(self._output_fname, mode="I")
 
   def reset(self, *args: Any, **kwargs: Any) -> Observations:

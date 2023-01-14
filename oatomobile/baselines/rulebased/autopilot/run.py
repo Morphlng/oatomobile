@@ -107,8 +107,9 @@ def main(argv):
   finally:
     # Garbage collector.
     try:
+      # If an exception is raised before EnvironmentLoop, this will raise an exception
       env.close()
-    except NameError:
+    except Exception:
       pass
 
 
